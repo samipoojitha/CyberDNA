@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+import truststore
+truststore.inject_into_ssl()
 from twilio.rest import Client
 
 load_dotenv(Path(__file__).resolve().parent / ".env")

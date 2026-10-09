@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sms_alerts import send_alert_sms
+from notifications import dispatch, channel_status
 import json
 import math
 import os
@@ -312,7 +312,7 @@ class SimulateRequest(BaseModel):
 
 
 @app.post("/events/simulate")
-def simulate(request: SimulateRequest):
+async def simulate(request: SimulateRequest):
     if request.kind == "suspicious":
         user = next(user for user in USERS if user["id"] == "user_104")
         device = f"dev_unknown_{random.randint(10, 99)}"
@@ -349,10 +349,15 @@ def simulate(request: SimulateRequest):
         save_event(db, event)
         if alert:
             save_alert(db, alert)
-    sms_sent = None
+
+    notifications_sent: dict | None = None
     if alert:
-        sms_sent = send_alert_sms(alert)
-    return {"event": event, "alert": alert, "smsSent": sms_sent}
+        # Run the blocking Twilio HTTP call in a thread so it doesn't stall the event loop
+        import asyncio
+        notifications_sent = await asyncio.get_event_loop().run_in_executor(
+            None, dispatch, alert
+        )
+    return {"event": event, "alert": alert, "notificationsSent": notifications_sent}
 
 
 class AlertUpdate(BaseModel):
@@ -376,3 +381,10 @@ def update_alert(alert_id: str, update: AlertUpdate):
         save_alert(db, alert)
 
     return alert
+
+
+@app.get("/notifications/status")
+def notifications_status():
+    """Return which notification channels are configured (credentials present).
+    Never exposes the credential values themselves."""
+    return channel_status()
