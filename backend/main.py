@@ -17,7 +17,10 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("CYBERDNA_DB", ROOT / "cyberdna.db"))
+MODEL_PATH = ROOT / "cyberdna_model.joblib"
+import joblib
 
+TRAINED_MODEL = joblib.load(MODEL_PATH) if MODEL_PATH.exists() else None
 USERS = [
     {"id": "user_101", "devices": ["dev_lap_101", "dev_ph_101"], "hours": [8, 17], "avgSession": 42, "volume": 180},
     {"id": "user_102", "devices": ["dev_lap_102"], "hours": [9, 18], "avgSession": 35, "volume": 150},
@@ -87,7 +90,27 @@ def assess(user: dict, device: str, hour: int, failed: int) -> tuple[int, list[s
         )
 
     return min(100, score), reasons
+def model_score(user, device, hour, failed, volume):
+    rule_score, _ = assess(user, device, hour, failed)
 
+    if TRAINED_MODEL is None:
+        return rule_score
+
+    start, end = user["hours"]
+    in_window = (
+        start <= hour <= end
+        if start <= end
+        else hour >= start or hour <= end
+    )
+    features = [[
+        int(in_window),
+        int(device in user["devices"]),
+        failed,
+        volume / max(user["volume"], 1),
+    ]]
+    probabilities = TRAINED_MODEL.predict_proba(features)[0]
+    suspicious_index = list(TRAINED_MODEL.classes_).index(1)
+    return round(float(probabilities[suspicious_index]) * 100)
 
 def make_event(
     user: dict,
@@ -99,7 +122,7 @@ def make_event(
     timestamp: str,
     simulated: bool,
 ) -> dict:
-    score, _ = assess(user, device, hour, failed)
+    score = model_score(user, device, hour, failed, volume)
 
     if score == 0:
         score = (ord(user["id"][-1]) + hour + random.randint(0, 10)) % 11
@@ -237,6 +260,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
+@app.get("/model/status")
+def model_status():
+    return {"trained": TRAINED_MODEL is not None}
 
 
 def all_records(table: str) -> list[dict]:
