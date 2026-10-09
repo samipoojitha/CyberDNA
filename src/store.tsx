@@ -21,7 +21,7 @@ export function AppProvider({children}:{children:ReactNode}){
   const go:Ctx['go']=(p,o={})=>{setPage(p);setSel({user:o.user??null,alert:o.alert??null});setQuery(o.q??'')};
   const simulate:Ctx['simulate']=async k=>{const r=await api.simulate(k,USERS);
     setData(d=>({events:[r.ev,...d.events],alerts:r.alert?[r.alert,...d.alerts]:d.alerts}));
-    if(r.alert){setSel(s=>({...s,alert:r.alert!.id}));toast(`${r.source==='demo'?'Simulated alert':'Alert'}: ${r.alert.user} scored ${r.alert.score}/100`,'warn')}
+    if(r.alert){setSel(s=>({...s,alert:r.alert!.id}));toast(r.source==='backend'&&r.smsSent===false?'Alert created, but SMS failed. Check backend logs and Twilio settings.':r.source==='backend'&&r.smsSent===true?'Alert created; SMS submitted to Twilio.':`${r.source==='demo'?'Simulated alert':'Alert'}: ${r.alert.user} scored ${r.alert.score}/100`,'warn')}
     else toast('Normal activity logged; risk stays low');return r.alert};
   const setStatus:Ctx['setStatus']=(id,s,msg)=>{setData(d=>({...d,alerts:d.alerts.map(a=>a.id===id?{...a,status:s}:a)}));api.patchAlert(id,s);toast(msg)};
   const reset=()=>{setData(seed());setSel({user:null,alert:null});toast('Demo data reset')};

@@ -5,13 +5,13 @@ const BASE=(import.meta.env.VITE_API_BASE as string|undefined)||'/api';
 async function req<T>(path:string,init?:RequestInit):Promise<T|null>{
   try{const r=await fetch(BASE+path,{...init,headers:{'Content-Type':'application/json'}});return r.ok?await r.json() as T:null}catch{return null}
 }
-export interface SimResult{ev:Ev;alert?:Alert;source:'backend'|'demo'}
+export interface SimResult{ev:Ev;alert?:Alert;source:'backend'|'demo';smsSent?:boolean|null}
 export const api={
   // Future: GET /dashboard, /users, /users/{id}/profile, /events, /alerts — pages currently read the shared local store.
   ping:async()=>(await req<unknown>('/dashboard'))!==null,
   async simulate(kind:'normal'|'suspicious',users:User[]):Promise<SimResult>{
-    const remote=await req<{event:Ev;alert?:Alert}>('/events/simulate',{method:'POST',body:JSON.stringify({kind})});
-    if(remote)return {ev:remote.event,alert:remote.alert&&{...remote.alert,origin:'backend'},source:'backend'};
+    const remote=await req<{event:Ev;alert?:Alert;smsSent?:boolean|null}>('/events/simulate',{method:'POST',body:JSON.stringify({kind})});
+    if(remote)return {ev:remote.event,alert:remote.alert&&{...remote.alert,origin:'backend'},source:'backend',smsSent:remote.smsSent};
     const now=new Date().toISOString();
     if(kind==='normal'){const u=users[Math.floor(Math.random()*users.length)];
       return {ev:mkEv(u,u.devices[0],u.hours[0],0,Math.round(u.volume/7),'Session',now,true),source:'demo'}}

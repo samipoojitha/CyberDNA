@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from sms_alerts import send_alert_sms
 import json
 import math
 import os
@@ -136,7 +136,7 @@ def make_event(
         "hour": hour,
         "failed": failed,
         "volume": volume,
-        "score": score,
+        "score":score,
         "cls": "suspicious" if score >= 40 else "normal",
         "simulated": simulated,
     }
@@ -338,7 +338,7 @@ def simulate(request: SimulateRequest):
             "hour": hour,
             "failed": failed,
             "volume": volume,
-            "score": score,
+            "score": event["score"],
             "reasons": reasons,
             "ts": timestamp,
             "status": "open",
@@ -349,8 +349,10 @@ def simulate(request: SimulateRequest):
         save_event(db, event)
         if alert:
             save_alert(db, alert)
-
-    return {"event": event, "alert": alert}
+    sms_sent = None
+    if alert:
+        sms_sent = send_alert_sms(alert)
+    return {"event": event, "alert": alert, "smsSent": sms_sent}
 
 
 class AlertUpdate(BaseModel):
