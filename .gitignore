@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+.env
+backend/cyberdna.db
+backend/cyberdna_model.joblib
